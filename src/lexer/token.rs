@@ -1,7 +1,15 @@
-/// Token categories for the Neko lexer.
-///
-/// The display names intentionally stay simple and uppercase so the exported
-/// `tokens.txt` file is easy to read during compiler exercises.
+// TokenKind — every possible token category in the Neko language.
+//
+// `#[derive(...)]` is a macro that auto-implements common traits for this enum:
+//   - `Debug`   → allows `{:?}` formatting (like console.log)
+//   - `Clone`   → allows `.clone()` to make a deep copy
+//   - `Copy`    → allows implicit bitwise copy (cheap — no heap data, no destructor)
+//   - `PartialEq` → allows `==` and `!=` comparisons
+//   - `Eq`      → full equality contract (no floating-point NaN)
+//
+// Rust enums are "sum types" — each variant is a distinct case, and variants
+// can carry different data payloads. This enum has no payloads (unit variants).
+// In TS: `type TokenKind = "KeywordNeko" | "KeywordNyan" | "KeywordFn" | ...`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     KeywordNeko,
@@ -42,9 +50,14 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
-    /// Human-readable name used in exported token files.
+    // `&'static str` — a string literal reference that lives for the entire program.
+    // Static strings are embedded in the compiled binary and never freed.
+    // Safe to pass around as a read-only reference.
     pub fn display_name(self) -> &'static str {
         match self {
+            // `match` in Rust is like a super-powered `switch` — the compiler
+            // checks exhaustively that EVERY variant is covered.
+            // Missing a variant = compile error (unlike TS where you get undefined).
             TokenKind::KeywordNeko => "NEKO",
             TokenKind::KeywordNyan => "NYAN",
             TokenKind::KeywordFn => "FN",
@@ -88,15 +101,20 @@ impl TokenKind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
-    pub lexeme: String,
+    pub lexeme: String,  // The raw text matched (e.g. "banana", "90", "=>")
     pub line: usize,
     pub column: usize,
 }
 
 impl Token {
+    // `impl Into<String>` — accept any type that can be converted into `String`.
+    // This includes `&str`, `String`, `Box<str>`, `Cow<'_, str>`, etc.
+    // Call `.into()` to perform the conversion.
+    // In TS: this is like `function new(kind, lexeme: string | Stringable)`
     pub fn new(kind: TokenKind, lexeme: impl Into<String>, line: usize, column: usize) -> Self {
         Self {
             kind,
+            // `.into()` converts the generic input into an owned `String`.
             lexeme: lexeme.into(),
             line,
             column,
@@ -121,6 +139,8 @@ impl LexicalError {
         }
     }
 
+    // `format!()` is like `println!()` but returns a `String` instead of printing.
+    // In TS: `` `${this.line}:${this.column} -> ${this.message}` ``
     pub fn format_line(&self) -> String {
         format!("{}:{} -> {}", self.line, self.column, self.message)
     }

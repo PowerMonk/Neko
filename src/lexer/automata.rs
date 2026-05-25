@@ -3,19 +3,40 @@ use super::alphabet::{
 };
 use super::token::TokenKind;
 
-// Result of running the string DFA.
+// This enum has three "variants" that carry different data payloads.
+// In TS, this would be a discriminated union:
+//   type StringRecognition =
+//     | { kind: "Matched"; length: number }
+//     | { kind: "Unterminated" }
+//     | { kind: "InvalidCharacter"; character: string; offset: number }
 pub enum StringRecognition {
-    Matched(usize),
-    Unterminated,
-    InvalidCharacter { character: char, offset: usize },
+    Matched(usize),              // Named tuple: just a length value
+    Unterminated,                // No data needed — just the fact it happened
+    InvalidCharacter {           // Named fields — like an object
+        character: char,
+        offset: usize,
+    },
 }
 
+// Ensures a keyword isn't followed by identifier-continuation characters.
+// This prevents "neko" from matching inside "nekocat" — the `n` at position 4
+// would be `is_identifier_continue(n)` → true, so `keyword_boundary` returns false.
 fn keyword_boundary(chars: &[char], end_index: usize) -> bool {
+    // `chars.get(end_index)` — safe index lookup, returns `Option<&char>` (never panics).
+    // `.copied()` converts `Option<&char>` → `Option<char>` by copying the value.
+    // `match` on `Option`:
+    //   `Some(next_character)` — there IS a character at this position
+    //   `None` — we're at end of file (EOF), which IS a valid keyword boundary
     match chars.get(end_index).copied() {
         Some(next_character) => !is_identifier_continue(next_character),
-        None => true,
+        None => true,  // EOF = boundary
     }
 }
+
+// --- Keyword recognizers ---
+// Each is a hand-written DFA (Deterministic Finite Automaton).
+// The comment `q0 --n--> q1` means "from state 0, on character 'n', transition to state 1".
+// `(accept)` means the final state is reached — return the matched length.
 
 /// q0 --n--> q1 --e--> q2 --k--> q3 --o--> q4 (accept)
 pub fn recognize_keyword_neko(chars: &[char], start: usize) -> Option<usize> {
@@ -31,6 +52,8 @@ pub fn recognize_keyword_neko(chars: &[char], start: usize) -> Option<usize> {
     if chars.get(start + 3).copied() != Some('o') {
         return None;
     }
+    // After matching all 4 characters, verify it's a word boundary
+    // (next char is not alphanumeric or underscore).
     if !keyword_boundary(chars, start + 4) {
         return None;
     }
@@ -191,13 +214,18 @@ pub fn recognize_keyword_false(chars: &[char], start: usize) -> Option<usize> {
     Some(5)
 }
 
+// --- Non-keyword recognizers ---
+
 /// Recognize a standard identifier: [a-zA-Z][a-zA-Z0-9_]*
 pub fn recognize_identifier(chars: &[char], start: usize) -> Option<usize> {
+    // The `?` operator here means: if `get()` returns `None`, exit early with `None`.
+    // In TS: `const first = arr[start]; if (first === undefined) return null;`
     let first_character = chars.get(start).copied()?;
     if !is_identifier_start(first_character) {
         return None;
     }
 
+    // Greedy match: keep consuming while characters are identifier-continuation.
     let mut length = 1;
     while let Some(next_character) = chars.get(start + length).copied() {
         if is_identifier_continue(next_character) {
@@ -217,6 +245,7 @@ pub fn recognize_integer(chars: &[char], start: usize) -> Option<usize> {
         return None;
     }
 
+    // Greedy match: consume all consecutive digits.
     let mut length = 1;
     while let Some(next_character) = chars.get(start + length).copied() {
         if is_integer_character(next_character) {
@@ -238,8 +267,9 @@ pub fn recognize_wildcard(chars: &[char], start: usize) -> Option<usize> {
     }
 }
 
-/// DFA for strings: "([a-zA-Z0-9_ ])*"
+/// DFA for string literals: "([a-zA-Z0-9_ ])*"
 pub fn recognize_string(chars: &[char], start: usize) -> StringRecognition {
+    // Must start with a double-quote character.
     if chars.get(start).copied() != Some('"') {
         return StringRecognition::Unterminated;
     }
@@ -248,14 +278,17 @@ pub fn recognize_string(chars: &[char], start: usize) -> StringRecognition {
 
     while let Some(next_character) = chars.get(index).copied() {
         if next_character == '"' {
+            // Found the closing quote—success.
             return StringRecognition::Matched(index - start + 1);
         }
 
         if next_character == '\n' {
+            // Hit end of line without closing — unterminated string.
             return StringRecognition::Unterminated;
         }
 
         if !is_string_character(next_character) {
+            // Character not in the allowed set for strings.
             return StringRecognition::InvalidCharacter {
                 character: next_character,
                 offset: index - start,
@@ -265,6 +298,7 @@ pub fn recognize_string(chars: &[char], start: usize) -> StringRecognition {
         index += 1;
     }
 
+    // Reached end of file without finding closing quote.
     StringRecognition::Unterminated
 }
 
@@ -274,6 +308,7 @@ pub fn recognize_comment(chars: &[char], start: usize) -> Option<usize> {
         return None;
     }
 
+    // Consume everything until newline (or end of file).
     let mut index = start + 1;
     while let Some(next_character) = chars.get(index).copied() {
         if next_character == '\n' {
@@ -286,39 +321,59 @@ pub fn recognize_comment(chars: &[char], start: usize) -> Option<usize> {
 }
 
 /// Recognize operators and punctuation that form token boundaries.
+///
+/// Multi-character operators (`==`, `!=`, `<=`, `>=`, `&&`, `||`, `=>`)
+/// are checked BEFORE single-character ones, so we don't mistake `==` for
+/// two separate `=` signs.
 pub fn recognize_operator(chars: &[char], start: usize) -> Option<(TokenKind, usize)> {
+    // `match` on the character at the current position.
+    // `chars.get(start).copied()?` — if `None` at start, exit early.
     match chars.get(start).copied()? {
+        // Single-character operators:
         '+' => Some((TokenKind::Plus, 1)),
         '-' => Some((TokenKind::Minus, 1)),
         '*' => Some((TokenKind::Star, 1)),
         '/' => Some((TokenKind::Slash, 1)),
         '%' => Some((TokenKind::Percent, 1)),
+
+        // `=` → check for `==` (equal) or `=>` (fat arrow) first
         '=' => match chars.get(start + 1).copied() {
             Some('=') => Some((TokenKind::EqualEqual, 2)),
             Some('>') => Some((TokenKind::FatArrow, 2)),
-            _ => Some((TokenKind::Assign, 1)),
+            _ => Some((TokenKind::Assign, 1)),  // single `=`
         },
+
+        // `!` → check for `!=` (not equal)
         '!' => match chars.get(start + 1).copied() {
             Some('=') => Some((TokenKind::NotEqual, 2)),
-            _ => Some((TokenKind::Bang, 1)),
+            _ => Some((TokenKind::Bang, 1)),  // single `!`
         },
+
+        // `<` → check for `<=` (less than or equal)
         '<' => match chars.get(start + 1).copied() {
             Some('=') => Some((TokenKind::LessEqual, 2)),
-            _ => Some((TokenKind::Less, 1)),
+            _ => Some((TokenKind::Less, 1)),  // single `<`
         },
+
+        // `>` → check for `>=` (greater than or equal)
         '>' => match chars.get(start + 1).copied() {
             Some('=') => Some((TokenKind::GreaterEqual, 2)),
-            _ => Some((TokenKind::Greater, 1)),
+            _ => Some((TokenKind::Greater, 1)),  // single `>`
         },
+
+        // `&` → only valid as `&&` (logical AND). Single `&` is NOT recognized.
         '&' => match chars.get(start + 1).copied() {
             Some('&') => Some((TokenKind::AndAnd, 2)),
             _ => None,
         },
+
+        // `|` → only valid as `||` (logical OR). Single `|` is NOT recognized.
         '|' => match chars.get(start + 1).copied() {
             Some('|') => Some((TokenKind::OrOr, 2)),
             _ => None,
         },
-        _ => None,
+
+        _ => None,  // Not an operator character
     }
 }
 
