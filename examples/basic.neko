@@ -1,0 +1,13 @@
+fn neko {
+
+    nyan banana = 90
+    nyan holamundo = "Hola mundo desde Neko"
+
+    nyan result = match score {
+        100 => "Perfect"
+        90  => "Excellent"
+        _   => "Fail"
+    }
+
+    meow(result)
+}

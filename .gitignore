@@ -1,0 +1,20 @@
+# Build output
+/target/
+
+# Runtime artifacts (output preserved via .gitkeep)
+/output/*.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Rust tools
+*/*.rs.bk
