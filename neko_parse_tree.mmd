@@ -1,0 +1,99 @@
+%% Neko — Árbol de análisis sintáctico (parse tree)
+%%
+%% Programa analizado:
+%%
+%%   fn neko {
+%%       nyan score = 90
+%%       nyan result = match score {
+%%           100 => "Perfect"
+%%           90  => "Excellent"
+%%           _   => "Fail"
+%%       }
+%%       meow(result)
+%%   }
+%%
+%% Cada nodo representa una producción de la gramática
+%% descrita en neko_grammar.md.
+
+graph TD
+    Program --> Stmt1["Stmt: FnDecl"]
+    Program --> Stmt2["Stmt: VarDecl (score)"]
+    Program --> Stmt3["Stmt: VarDecl (result)"]
+    Program --> Stmt4["Stmt: PrintStmt"]
+
+    %% ----- fn neko { <expr> } -----
+    Stmt1 --> FnDecl["FnDecl"]
+    FnDecl --> T_fn["kw fn"]
+    FnDecl --> T_neko_kw["kw neko"]
+    FnDecl --> Block1["Block"]
+    Block1 --> T_lbrace1["{ "]
+    Block1 --> Expr1["Expr: OrExpr → Primary"]
+    Expr1 --> Prim1["Primary: ID"]
+    Prim1 --> T_score["ID score"]
+    Block1 --> T_rbrace1["} "]
+
+    %% ----- nyan score = 90 -----
+    Stmt2 --> VarDecl1["VarDecl"]
+    VarDecl1 --> T_nyan1["kw nyan"]
+    VarDecl1 --> T_score_id["ID score"]
+    VarDecl1 --> T_eq1["= "]
+    VarDecl1 --> Expr2["Expr: OrExpr → Primary"]
+    Expr2 --> Prim2["Primary: INT"]
+    Prim2 --> T_90["INT 90"]
+
+    %% ----- nyan result = match score { ... } -----
+    Stmt3 --> VarDecl2["VarDecl"]
+    VarDecl2 --> T_nyan2["kw nyan"]
+    VarDecl2 --> T_result_id["ID result"]
+    VarDecl2 --> T_eq2["= "]
+    VarDecl2 --> Expr3["Expr: match score { ... }"]
+    Expr3 --> T_match["kw match"]
+    Expr3 --> Expr3s["Expr: ID score"]
+    Expr3s --> T_score_expr["ID score"]
+    Expr3 --> T_lbrace2["{ "]
+    Expr3 --> Arms["Arms"]
+    Arms --> Arm1["Arm: 100 => Perfect"]
+    Arms --> Arm2["Arm: 90 => Excellent"]
+    Arms --> Arm3["Arm: _ => Fail"]
+
+    Arm1 --> Pat1["Pattern: INT"]
+    Pat1 --> T_100["INT 100"]
+    Arm1 --> T_fat1["=>"]
+    Arm1 --> ExprArm1["Expr: STRING Perfect"]
+    ExprArm1 --> Prim3["Primary: STRING"]
+    Prim3 --> T_perfect["STRING Perfect"]
+
+    Arm2 --> Pat2["Pattern: INT"]
+    Pat2 --> T_90b["INT 90"]
+    Arm2 --> T_fat2["=>"]
+    Arm2 --> ExprArm2["Expr: STRING Excellent"]
+    ExprArm2 --> Prim4["Primary: STRING"]
+    Prim4 --> T_excellent["STRING Excellent"]
+
+    Arm3 --> Pat3["Pattern: _"]
+    Pat3 --> T_under["_ "]
+    Arm3 --> T_fat3["=>"]
+    Arm3 --> ExprArm3["Expr: STRING Fail"]
+    ExprArm3 --> Prim5["Primary: STRING"]
+    Prim5 --> T_fail["STRING Fail"]
+
+    Expr3 --> T_rbrace2["} "]
+
+    %% ----- meow(result) -----
+    Stmt4 --> PrintStmt["PrintStmt"]
+    PrintStmt --> T_meow["kw meow"]
+    PrintStmt --> T_lparen["( "]
+    PrintStmt --> Expr4["Expr: ID result"]
+    Expr4 --> T_result_expr["ID result"]
+    PrintStmt --> T_rparen[") "]
+
+    %% Styling
+    classDef terminal fill:#1e3a5f,stroke:#9ecbff,color:#ffffff;
+    classDef nonterminal fill:#2d5a3d,stroke:#a8e6a3,color:#ffffff;
+    classDef stmt fill:#5a3d2d,stroke:#ffc99e,color:#ffffff;
+    classDef expr fill:#5a2d5a,stroke:#e6a3e6,color:#ffffff;
+
+    class T_fn,T_neko_kw,T_nyan1,T_nyan2,T_eq1,T_eq2,T_score,T_score_id,T_score_expr,T_result_id,T_result_expr,T_match,T_lbrace1,T_rbrace1,T_lbrace2,T_rbrace2,T_lparen,T_rparen,T_meow,T_fat1,T_fat2,T_fat3,T_under,T_100,T_90b,T_90,T_perfect,T_excellent,T_fail terminal;
+    class Program,FnDecl,VarDecl1,VarDecl2,Block1,Arms,Arm1,Arm2,Arm3,Pat1,Pat2,Pat3,PrintStmt nonterminal;
+    class Stmt1,Stmt2,Stmt3,Stmt4 stmt;
+    class Expr1,Expr2,Expr3,Expr3s,Expr4,ExprArm1,ExprArm2,ExprArm3,Prim1,Prim2,Prim3,Prim4,Prim5 expr;
