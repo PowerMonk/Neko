@@ -14,86 +14,366 @@
 %%
 %% Cada nodo representa una producción de la gramática
 %% descrita en neko_grammar.md.
+%%
+%% Convenciones:
+%%   - Nodos rectangulares = no terminales
+%%   - Nodos terminales = literales del lenguaje (kw fn, ID score, INT 90, etc.)
+%%   - ε  = producción vacía / cierre de un iterador o Tail
+%%   - Las alternativas no elegidas de un no-terminal con varias
+%%     producciones se omiten; solo se dibuja la rama seleccionada.
+%%   - Stmts, Arms, *Tail son iteradores explícitos: se encadenan a sí
+%%     mismos y terminan en ε.
 
 graph TD
-    Program --> Stmt1["Stmt: FnDecl"]
-    Program --> Stmt2["Stmt: VarDecl (score)"]
-    Program --> Stmt3["Stmt: VarDecl (result)"]
-    Program --> Stmt4["Stmt: PrintStmt"]
+    %% =================================================================
+    %% Program → Stmts
+    %% =================================================================
+    Program["Program"]
+    Stmts1["Stmts"]
 
-    %% ----- fn neko { <expr> } -----
-    Stmt1 --> FnDecl["FnDecl"]
-    FnDecl --> T_fn["kw fn"]
-    FnDecl --> T_neko_kw["kw neko"]
-    FnDecl --> Block1["Block"]
-    Block1 --> T_lbrace1["{ "]
-    Block1 --> Expr1["Expr: OrExpr → Primary"]
-    Expr1 --> Prim1["Primary: ID"]
-    Prim1 --> T_score["ID score"]
-    Block1 --> T_rbrace1["} "]
+    Program --> Stmts1
 
-    %% ----- nyan score = 90 -----
-    Stmt2 --> VarDecl1["VarDecl"]
-    VarDecl1 --> T_nyan1["kw nyan"]
-    VarDecl1 --> T_score_id["ID score"]
-    VarDecl1 --> T_eq1["= "]
-    VarDecl1 --> Expr2["Expr: OrExpr → Primary"]
-    Expr2 --> Prim2["Primary: INT"]
-    Prim2 --> T_90["INT 90"]
+    %% =================================================================
+    %% Stmts chain: Stmt1 → Stmt2 → Stmt3 → Stmt4 → ε
+    %% =================================================================
+    Stmts1 --> S1["Stmt (alt: FnDecl)"]
+    S1 --> Stmts2["Stmts"]
+    Stmts2 --> S2["Stmt (alt: VarDecl score)"]
+    S2 --> Stmts3["Stmts"]
+    Stmts3 --> S3["Stmt (alt: VarDecl result)"]
+    S3 --> Stmts4["Stmts"]
+    Stmts4 --> S4["Stmt (alt: PrintStmt)"]
+    S4 --> StmtsE["Stmts"]
+    StmtsE --> E1["ε"]
 
-    %% ----- nyan result = match score { ... } -----
-    Stmt3 --> VarDecl2["VarDecl"]
-    VarDecl2 --> T_nyan2["kw nyan"]
-    VarDecl2 --> T_result_id["ID result"]
-    VarDecl2 --> T_eq2["= "]
-    VarDecl2 --> Expr3["Expr: match score { ... }"]
-    Expr3 --> T_match["kw match"]
-    Expr3 --> Expr3s["Expr: ID score"]
-    Expr3s --> T_score_expr["ID score"]
-    Expr3 --> T_lbrace2["{ "]
-    Expr3 --> Arms["Arms"]
-    Arms --> Arm1["Arm: 100 => Perfect"]
-    Arms --> Arm2["Arm: 90 => Excellent"]
-    Arms --> Arm3["Arm: _ => Fail"]
+    %% =================================================================
+    %% STMT 1: FnDecl — fn neko { score }
+    %% =================================================================
+    subgraph S1_block ["Stmt 1: FnDecl"]
+        direction TB
+        FnDecl1["FnDecl"]
+        T_fn1["kw fn"]
+        T_neko1["kw neko"]
+        Block1["Block"]
+        T_lb1["{ "]
+        Expr1["Expr (alt: OrExpr)"]
+        T_rb1["} "]
 
-    Arm1 --> Pat1["Pattern: INT"]
-    Pat1 --> T_100["INT 100"]
-    Arm1 --> T_fat1["=>"]
-    Arm1 --> ExprArm1["Expr: STRING Perfect"]
-    ExprArm1 --> Prim3["Primary: STRING"]
-    Prim3 --> T_perfect["STRING Perfect"]
+        S1 --> FnDecl1
+        FnDecl1 --> T_fn1
+        FnDecl1 --> T_neko1
+        FnDecl1 --> Block1
+        Block1 --> T_lb1
+        Block1 --> Expr1
+        Block1 --> T_rb1
 
-    Arm2 --> Pat2["Pattern: INT"]
-    Pat2 --> T_90b["INT 90"]
-    Arm2 --> T_fat2["=>"]
-    Arm2 --> ExprArm2["Expr: STRING Excellent"]
-    ExprArm2 --> Prim4["Primary: STRING"]
-    Prim4 --> T_excellent["STRING Excellent"]
+        %% Expr (OrExpr path) → OrExpr → AndExpr → NotExpr → CmpExpr
+        %% → AddExpr → MulExpr → Unary → Primary → ID score
+        Expr1 --> OrExpr1["OrExpr"]
+        OrExpr1 --> AndExpr1["AndExpr"]
+        AndExpr1 --> NotExpr1["NotExpr"]
+        NotExpr1 --> CmpExpr1["CmpExpr"]
+        CmpExpr1 --> AddExpr1["AddExpr"]
+        AddExpr1 --> MulExpr1["MulExpr"]
+        MulExpr1 --> Unary1["Unary"]
+        Unary1 --> Primary1["Primary"]
+        Primary1 --> T_score1["ID score"]
 
-    Arm3 --> Pat3["Pattern: _"]
-    Pat3 --> T_under["_ "]
-    Arm3 --> T_fat3["=>"]
-    Arm3 --> ExprArm3["Expr: STRING Fail"]
-    ExprArm3 --> Prim5["Primary: STRING"]
-    Prim5 --> T_fail["STRING Fail"]
+        %% *Tail → ε chains (each Tail chose the ε alternative)
+        AndExpr1 --> OrTail1["OrTail"]
+        OrTail1 --> E2["ε"]
 
-    Expr3 --> T_rbrace2["} "]
+        NotExpr1 --> AndTail1["AndTail"]
+        AndTail1 --> E3["ε"]
 
-    %% ----- meow(result) -----
-    Stmt4 --> PrintStmt["PrintStmt"]
-    PrintStmt --> T_meow["kw meow"]
-    PrintStmt --> T_lparen["( "]
-    PrintStmt --> Expr4["Expr: ID result"]
-    Expr4 --> T_result_expr["ID result"]
-    PrintStmt --> T_rparen[") "]
+        CmpExpr1 --> NotTail1["NotTail ε"]
+        E4["ε"] -.-> NotTail1
 
+        AddExpr1 --> CmpTail1["CmpTail"]
+        CmpTail1 --> E5["ε"]
+
+        MulExpr1 --> AddTail1["AddTail"]
+        AddTail1 --> E6["ε"]
+
+        Unary1 --> MulTail1["MulTail"]
+        MulTail1 --> E7["ε"]
+    end
+
+    %% =================================================================
+    %% STMT 2: VarDecl — nyan score = 90
+    %% =================================================================
+    subgraph S2_block ["Stmt 2: VarDecl (nyan score = 90)"]
+        direction TB
+        VarDecl2["VarDecl"]
+        T_nyan2["kw nyan"]
+        T_score_id2["ID score"]
+        T_eq2["= "]
+        Expr2["Expr (alt: OrExpr)"]
+        OrExpr2["OrExpr"]
+        AndExpr2["AndExpr"]
+        NotExpr2["NotExpr"]
+        CmpExpr2["CmpExpr"]
+        AddExpr2["AddExpr"]
+        MulExpr2["MulExpr"]
+        Unary2["Unary"]
+        Primary2["Primary"]
+        T_90["INT 90"]
+
+        S2 --> VarDecl2
+        VarDecl2 --> T_nyan2
+        VarDecl2 --> T_score_id2
+        VarDecl2 --> T_eq2
+        VarDecl2 --> Expr2
+
+        Expr2 --> OrExpr2
+        OrExpr2 --> AndExpr2
+        AndExpr2 --> NotExpr2
+        NotExpr2 --> CmpExpr2
+        CmpExpr2 --> AddExpr2
+        AddExpr2 --> MulExpr2
+        MulExpr2 --> Unary2
+        Unary2 --> Primary2
+        Primary2 --> T_90
+
+        %% *Tail chains → ε
+        AndExpr2 --> OrTail2["OrTail"]
+        OrTail2 --> E8["ε"]
+
+        NotExpr2 --> AndTail2["AndTail"]
+        AndTail2 --> E9["ε"]
+
+        CmpExpr2 --> NotTail2["NotTail ε"]
+        E10["ε"] -.-> NotTail2
+
+        AddExpr2 --> CmpTail2["CmpTail"]
+        CmpTail2 --> E11["ε"]
+
+        MulExpr2 --> AddTail2["AddTail"]
+        AddTail2 --> E12["ε"]
+
+        Unary2 --> MulTail2["MulTail"]
+        MulTail2 --> E13["ε"]
+    end
+
+    %% =================================================================
+    %% STMT 3: VarDecl — nyan result = match score { ... }
+    %% =================================================================
+    subgraph S3_block ["Stmt 3: VarDecl (nyan result = match ...)"]
+        direction TB
+        VarDecl3["VarDecl"]
+        T_nyan3["kw nyan"]
+        T_result_id3["ID result"]
+        T_eq3["= "]
+        Expr3["Expr (alt: match)"]
+        T_match3["kw match"]
+        Expr3s["Expr (alt: OrExpr)"]
+        OrExpr3s["OrExpr"]
+        AndExpr3s["AndExpr"]
+        NotExpr3s["NotExpr"]
+        CmpExpr3s["CmpExpr"]
+        AddExpr3s["AddExpr"]
+        MulExpr3s["MulExpr"]
+        Unary3s["Unary"]
+        Primary3s["Primary"]
+        T_score_expr3["ID score"]
+        T_lb3["{ "]
+        Arms1["Arms"]
+        T_rb3["} "]
+
+        S3 --> VarDecl3
+        VarDecl3 --> T_nyan3
+        VarDecl3 --> T_result_id3
+        VarDecl3 --> T_eq3
+        VarDecl3 --> Expr3
+
+        Expr3 --> T_match3
+        Expr3 --> Expr3s
+        Expr3 --> T_lb3
+        Expr3 --> Arms1
+        Expr3 --> T_rb3
+
+        Expr3s --> OrExpr3s
+        OrExpr3s --> AndExpr3s
+        AndExpr3s --> NotExpr3s
+        NotExpr3s --> CmpExpr3s
+        CmpExpr3s --> AddExpr3s
+        AddExpr3s --> MulExpr3s
+        MulExpr3s --> Unary3s
+        Unary3s --> Primary3s
+        Primary3s --> T_score_expr3
+
+        %% *Tail chains → ε (for the matched Expr)
+        AndExpr3s --> OrTail3s["OrTail"]
+        OrTail3s --> E14["ε"]
+        NotExpr3s --> AndTail3s["AndTail"]
+        AndTail3s --> E15["ε"]
+        CmpExpr3s --> NotTail3s["NotTail ε"]
+        E16["ε"] -.-> NotTail3s
+        AddExpr3s --> CmpTail3s["CmpTail"]
+        CmpTail3s --> E17["ε"]
+        MulExpr3s --> AddTail3s["AddTail"]
+        AddTail3s --> E18["ε"]
+        Unary3s --> MulTail3s["MulTail"]
+        MulTail3s --> E19["ε"]
+
+        %% ---- Arms chain: Arm1 → Arms → Arm2 → Arms → Arm3 → Arms → ε ----
+        Arms1 --> ArmA["Arm (100 => Perfect)"]
+        ArmA --> Arms2["Arms"]
+        Arms2 --> ArmB["Arm (90 => Excellent)"]
+        ArmB --> Arms3["Arms"]
+        Arms3 --> ArmC["Arm (_ => Fail)"]
+        ArmC --> ArmsE["Arms"]
+        ArmsE --> E20["ε"]
+
+        %% ---- Arm 1: Pattern INT 100 => Expr STRING Perfect ----
+        ArmA --> Pat1["Pattern (alt: INT)"]
+        Pat1 --> T_100["INT 100"]
+        ArmA --> T_fat1["=>"]
+        ArmA --> ExprArmA["Expr (alt: OrExpr)"]
+        ExprArmA --> OrExprA["OrExpr"]
+        OrExprA --> AndExprA["AndExpr"]
+        AndExprA --> NotExprA["NotExpr"]
+        NotExprA --> CmpExprA["CmpExpr"]
+        CmpExprA --> AddExprA["AddExpr"]
+        AddExprA --> MulExprA["MulExpr"]
+        MulExprA --> UnaryA["Unary"]
+        UnaryA --> PrimaryA["Primary"]
+        PrimaryA --> T_perfect["STRING Perfect"]
+
+        AndExprA --> OrTailA["OrTail"]
+        OrTailA --> E21["ε"]
+        NotExprA --> AndTailA["AndTail"]
+        AndTailA --> E22["ε"]
+        CmpExprA --> NotTailA["NotTail ε"]
+        E23["ε"] -.-> NotTailA
+        AddExprA --> CmpTailA["CmpTail"]
+        CmpTailA --> E24["ε"]
+        MulExprA --> AddTailA["AddTail"]
+        AddTailA --> E25["ε"]
+        UnaryA --> MulTailA["MulTail"]
+        MulTailA --> E26["ε"]
+
+        %% ---- Arm 2: Pattern INT 90 => Expr STRING Excellent ----
+        ArmB --> Pat2["Pattern (alt: INT)"]
+        Pat2 --> T_90b["INT 90"]
+        ArmB --> T_fat2["=>"]
+        ArmB --> ExprArmB["Expr (alt: OrExpr)"]
+        ExprArmB --> OrExprB["OrExpr"]
+        OrExprB --> AndExprB["AndExpr"]
+        AndExprB --> NotExprB["NotExpr"]
+        NotExprB --> CmpExprB["CmpExpr"]
+        CmpExprB --> AddExprB["AddExpr"]
+        AddExprB --> MulExprB["MulExpr"]
+        MulExprB --> UnaryB["Unary"]
+        UnaryB --> PrimaryB["Primary"]
+        PrimaryB --> T_excellent["STRING Excellent"]
+
+        AndExprB --> OrTailB["OrTail"]
+        OrTailB --> E27["ε"]
+        NotExprB --> AndTailB["AndTail"]
+        AndTailB --> E28["ε"]
+        CmpExprB --> NotTailB["NotTail ε"]
+        E29["ε"] -.-> NotTailB
+        AddExprB --> CmpTailB["CmpTail"]
+        CmpTailB --> E30["ε"]
+        MulExprB --> AddTailB["AddTail"]
+        AddTailB --> E31["ε"]
+        UnaryB --> MulTailB["MulTail"]
+        MulTailB --> E32["ε"]
+
+        %% ---- Arm 3: Pattern _ => Expr STRING Fail ----
+        ArmC --> Pat3["Pattern (alt: _)"]
+        Pat3 --> T_under["_ "]
+        ArmC --> T_fat3["=>"]
+        ArmC --> ExprArmC["Expr (alt: OrExpr)"]
+        ExprArmC --> OrExprC["OrExpr"]
+        OrExprC --> AndExprC["AndExpr"]
+        AndExprC --> NotExprC["NotExpr"]
+        NotExprC --> CmpExprC["CmpExpr"]
+        CmpExprC --> AddExprC["AddExpr"]
+        AddExprC --> MulExprC["MulExpr"]
+        MulExprC --> UnaryC["Unary"]
+        UnaryC --> PrimaryC["Primary"]
+        PrimaryC --> T_fail["STRING Fail"]
+
+        AndExprC --> OrTailC["OrTail"]
+        OrTailC --> E33["ε"]
+        NotExprC --> AndTailC["AndTail"]
+        AndTailC --> E34["ε"]
+        CmpExprC --> NotTailC["NotTail ε"]
+        E35["ε"] -.-> NotTailC
+        AddExprC --> CmpTailC["CmpTail"]
+        CmpTailC --> E36["ε"]
+        MulExprC --> AddTailC["AddTail"]
+        AddTailC --> E37["ε"]
+        UnaryC --> MulTailC["MulTail"]
+        MulTailC --> E38["ε"]
+    end
+
+    %% =================================================================
+    %% STMT 4: PrintStmt — meow(result)
+    %% =================================================================
+    subgraph S4_block ["Stmt 4: PrintStmt (meow(result))"]
+        direction TB
+        PrintStmt4["PrintStmt"]
+        T_meow4["kw meow"]
+        T_lp4["( "]
+        Expr4["Expr (alt: OrExpr)"]
+        OrExpr4["OrExpr"]
+        AndExpr4["AndExpr"]
+        NotExpr4["NotExpr"]
+        CmpExpr4["CmpExpr"]
+        AddExpr4["AddExpr"]
+        MulExpr4["MulExpr"]
+        Unary4["Unary"]
+        Primary4["Primary"]
+        T_result_expr4["ID result"]
+        T_rp4[") "]
+
+        S4 --> PrintStmt4
+        PrintStmt4 --> T_meow4
+        PrintStmt4 --> T_lp4
+        PrintStmt4 --> Expr4
+        PrintStmt4 --> T_rp4
+
+        Expr4 --> OrExpr4
+        OrExpr4 --> AndExpr4
+        AndExpr4 --> NotExpr4
+        NotExpr4 --> CmpExpr4
+        CmpExpr4 --> AddExpr4
+        AddExpr4 --> MulExpr4
+        MulExpr4 --> Unary4
+        Unary4 --> Primary4
+        Primary4 --> T_result_expr4
+
+        %% *Tail chains → ε
+        AndExpr4 --> OrTail4["OrTail"]
+        OrTail4 --> E39["ε"]
+        NotExpr4 --> AndTail4["AndTail"]
+        AndTail4 --> E40["ε"]
+        CmpExpr4 --> NotTail4["NotTail ε"]
+        E41["ε"] -.-> NotTail4
+        AddExpr4 --> CmpTail4["CmpTail"]
+        CmpTail4 --> E42["ε"]
+        MulExpr4 --> AddTail4["AddTail"]
+        AddTail4 --> E43["ε"]
+        Unary4 --> MulTail4["MulTail"]
+        MulTail4 --> E44["ε"]
+    end
+
+    %% =================================================================
     %% Styling
+    %% =================================================================
     classDef terminal fill:#1e3a5f,stroke:#9ecbff,color:#ffffff;
     classDef nonterminal fill:#2d5a3d,stroke:#a8e6a3,color:#ffffff;
     classDef stmt fill:#5a3d2d,stroke:#ffc99e,color:#ffffff;
     classDef expr fill:#5a2d5a,stroke:#e6a3e6,color:#ffffff;
+    classDef iterator fill:#7a5a2d,stroke:#ffd97a,color:#ffffff;
+    classDef epsilon fill:#444444,stroke:#bbbbbb,color:#ffffff,stroke-dasharray: 5 5;
 
-    class T_fn,T_neko_kw,T_nyan1,T_nyan2,T_eq1,T_eq2,T_score,T_score_id,T_score_expr,T_result_id,T_result_expr,T_match,T_lbrace1,T_rbrace1,T_lbrace2,T_rbrace2,T_lparen,T_rparen,T_meow,T_fat1,T_fat2,T_fat3,T_under,T_100,T_90b,T_90,T_perfect,T_excellent,T_fail terminal;
-    class Program,FnDecl,VarDecl1,VarDecl2,Block1,Arms,Arm1,Arm2,Arm3,Pat1,Pat2,Pat3,PrintStmt nonterminal;
-    class Stmt1,Stmt2,Stmt3,Stmt4 stmt;
-    class Expr1,Expr2,Expr3,Expr3s,Expr4,ExprArm1,ExprArm2,ExprArm3,Prim1,Prim2,Prim3,Prim4,Prim5 expr;
+    class T_fn1,T_neko1,T_lb1,T_rb1,T_score1,T_nyan2,T_score_id2,T_eq2,T_90,T_nyan3,T_result_id3,T_eq3,T_match3,T_score_expr3,T_lb3,T_rb3,T_100,T_90b,T_perfect,T_excellent,T_under,T_fail,T_meow4,T_lp4,T_rp4,T_result_expr4,T_fat1,T_fat2,T_fat3 terminal;
+    class Program,FnDecl1,Block1,VarDecl2,VarDecl3,PrintStmt4,Primary1,Primary2,Primary3s,PrimaryA,PrimaryB,PrimaryC,Primary4,Pat1,Pat2,Pat3 nonterminal;
+    class S1,S2,S3,S4 stmt;
+    class Expr1,Expr2,Expr3,Expr3s,ExprArmA,ExprArmB,ExprArmC,Expr4,OrExpr1,AndExpr1,NotExpr1,CmpExpr1,AddExpr1,MulExpr1,Unary1,OrExpr2,AndExpr2,NotExpr2,CmpExpr2,AddExpr2,MulExpr2,Unary2,OrExpr3s,AndExpr3s,NotExpr3s,CmpExpr3s,AddExpr3s,MulExpr3s,Unary3s,OrExprA,AndExprA,NotExprA,CmpExprA,AddExprA,MulExprA,UnaryA,OrExprB,AndExprB,NotExprB,CmpExprB,AddExprB,MulExprB,UnaryB,OrExprC,AndExprC,NotExprC,CmpExprC,AddExprC,MulExprC,UnaryC,OrExpr4,AndExpr4,NotExpr4,CmpExpr4,AddExpr4,MulExpr4,Unary4 expr;
+    class Stmts1,Stmts2,Stmts3,Stmts4,StmtsE,Arms1,Arms2,Arms3,ArmsE,OrTail1,OrTail2,OrTail3s,OrTailA,OrTailB,OrTailC,OrTail4,AndTail1,AndTail2,AndTail3s,AndTailA,AndTailB,AndTailC,AndTail4,CmpTail1,CmpTail2,CmpTail3s,CmpTailA,CmpTailB,CmpTailC,CmpTail4,AddTail1,AddTail2,AddTail3s,AddTailA,AddTailB,AddTailC,AddTail4,MulTail1,MulTail2,MulTail3s,MulTailA,MulTailB,MulTailC,MulTail4,NotTail1,NotTail2,NotTail3s,NotTailA,NotTailB,NotTailC,NotTail4,ArmA,ArmB,ArmC iterator;
+    class E1,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24,E25,E26,E27,E28,E29,E30,E31,E32,E33,E34,E35,E36,E37,E38,E39,E40,E41,E42,E43,E44 epsilon;
