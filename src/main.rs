@@ -1,49 +1,65 @@
-// Declare the `lexer` submodule.
-// Rust looks for `src/lexer/mod.rs` (or `src/lexer.rs`).
-// In TS: `import * as lexer from './lexer'` — but here we're declaring
-// the module exists and telling the compiler to include it.
+// Declare the `lexer` and `parser` submodules.
+// Rust looks for `src/lexer/mod.rs` (or `src/lexer.rs`) and `src/parser/mod.rs`.
 mod lexer;
+mod parser;
 
-// `use crate::lexer::Lexer` — imports the Lexer struct from our module.
-// `crate` refers to the root of this project.
-// In TS: `import { Lexer } from './lexer/index'`
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 
-use std::env;  // Access command-line arguments
-use std::fs;   // File I/O (read_to_string, write, create_dir_all)
-use std::io;   // I/O error type (used in the Result return type)
+use std::env;
+use std::fs;
+use std::io;
 
-// `io::Result<()>` is shorthand for `Result<(), io::Error>`.
-// `()` (unit type) = "no meaningful value" — like `void` in TS.
-// The `?` operator inside the function can return `Err(...)` early.
 fn main() -> io::Result<()> {
-    // `env::args()` returns an iterator over CLI arguments.
-    // `.nth(1)` gets the element at index 1 (0 = program name, 1 = first arg).
-    // Returns `Option<String>` — could be `Some("myfile.neko")` or `None`.
-    // `.unwrap_or_else(|| default)` — if `None`, return the provided default.
-    // In TS: `const inputPath = process.argv[2] ?? "examples/basic.neko"`
     let input_path = env::args()
         .nth(1)
         .unwrap_or_else(|| String::from("examples/basic.neko"));
 
-    // Read the source file into a String.
-    // `?` operator: if `read_to_string` returns `Err`, exit `main()` early
-    // with that error. Like `try { await readFile(path) } catch (e) { return e; }`.
+    // ---- Phase 1: Lexical analysis ----
     let source = fs::read_to_string(&input_path)?;
     let lexer = Lexer::new(source);
-    let analysis = lexer.lex();
+    let lex_result = lexer.lex();
 
-    // Write the three output files to the "output" directory.
-    // `?` propagates any I/O errors (e.g., disk full, permission denied).
-    analysis.write_outputs("output")?;
+    lex_result.write_outputs("output")?;
 
-    // `{}` is Rust's placeholder for formatted output.
-    println!(
-        "Lexical analysis completed: {} token(s), {} symbol(s), {} error(s).",
-        analysis.tokens.len(),
-        analysis.symbols.entries().len(),
-        analysis.errors.len()
-    );
+    // ---- Phase 2: Syntactic analysis (only if lexer is clean) ----
+    //
+    // The rubric for this project says: "Tomar como entrada un código LIBRE
+    // DE ERRORES LÉXICOS y verificar con base en su gramática, que se
+    // cumplan las dos condiciones implícitas en su tarea."
+    // Translation: skip syntactic analysis when the input has lexical
+    // errors — they're a different problem class and we don't want
+    // cascading noise from mis-aligned tokens.
+    let (syn_errors, syn_ok) = if lex_result.errors.is_empty() {
+        let parser = Parser::new(lex_result.tokens.clone());
+        let syn_result = parser.parse();
+        let count = syn_result.errors.len();
+        syn_result.write_outputs("output")?;
+        (count, true)
+    } else {
+        // Still write empty parse outputs so the directory shape stays
+        // predictable for downstream tools.
+        std::fs::write("output/parse_tree.txt", "")?;
+        std::fs::write("output/parse_errors.txt", "(skipped: lexical errors present)\n")?;
+        (0usize, false)
+    };
 
-    Ok(())  // `Ok(())` means "success, returning nothing" — like `return;` in TS
+    // ---- Terminal summary ----
+    let tok_count = lex_result.tokens.len();
+    let sym_count = lex_result.symbols.entries().len();
+    let lex_errors = lex_result.errors.len();
+
+    if syn_ok && syn_errors == 0 {
+        println!(
+            "OK — {} tokens, {} symbols, parse tree built with 0 syntactic errors.",
+            tok_count, sym_count
+        );
+    } else {
+        println!(
+            "Errors found — lexical: {}, syntactic: {}. See output/errors.txt and output/parse_errors.txt.",
+            lex_errors, syn_errors
+        );
+    }
+
+    Ok(())
 }

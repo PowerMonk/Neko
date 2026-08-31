@@ -1,6 +1,7 @@
 # Neko — Gramática
 
 > Gramática formal del lenguaje **Neko** (notación BNF extendida).
+> Documento **02** de la serie [`docs/`](./00-index.md).
 > Diseñada para ser **no ambigua** y para producir **árboles de análisis
 > sintáctico planos y legibles**, siguiendo la convención clásica de
 > operadores **left-recursive** (Aho/Sethi/Ullman).
@@ -54,7 +55,13 @@ VarDecl        → 'nyan' ID '=' Expr
 
 PrintStmt      → 'meow' '(' Expr ')'
 
-Block          → '{' Expr '}'
+> **Nota**: `Block` contiene una secuencia de statements (`Stmts`), no una
+> sola expresión. Esto permite que `fn neko { ... }` tenga un cuerpo con
+> múltiples declaraciones, como en `examples/basic.neko`. La idea de
+> "retorno implícito" se mantiene porque el último statement del bloque
+> sigue siendo una expresión-evaluación.
+
+Block          → '{' Stmts '}'
 
 Expr           → 'if' Expr Block ElsePart
                | 'match' Expr '{' Arms '}'

@@ -1,0 +1,9 @@
+fn neko {
+    nyan a = 10
+    nyan b = 20
+    nyan c = 30
+    nyan sum = a + b + c
+    nyan product = a * b * c
+    meow(sum)
+    meow(product)
+}
