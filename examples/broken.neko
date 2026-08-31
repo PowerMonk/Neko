@@ -1,0 +1,9 @@
+fn neko {
+    nyan score = 90
+    nyan result = match score {
+        100 => "Perfect"
+        90  => "Excellent"
+        _   => "Fail"
+    }
+    meow(result
+}

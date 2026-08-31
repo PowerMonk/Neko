@@ -1,9 +1,9 @@
 # Neko — Diseño de la Gramática
 
-> Documento complementario a [`neko_grammar.md`](./neko_grammar.md).
-> Aquí se justifica cada decisión de diseño: **por qué** la gramática tiene
-> la forma que tiene y **cómo** se conectará con el resto del compilador
-> Rust (`neko-compiler`).
+> Documento **03** de la serie [`docs/`](./00-index.md).
+> Complementa a [`02-grammar.md`](./02-grammar.md) justificando **por qué**
+> la gramática tiene la forma que tiene y **cómo** se conecta con el
+> compilador Rust (`neko-compiler`).
 
 ---
 
@@ -285,7 +285,8 @@ fn parse_stmt(&mut self) -> Result<Stmt, SyntaxError> {
 ```
 
 El AST nodoso se almacenará en `src/parser/ast.rs` y consumirá la misma
-lista de `Token` que ya produce `lexer::Lexer`.
+lista de `Token` que ya produce `lexer::Lexer`. Ver
+[`05-parser.md`](./05-parser.md) para la implementación concreta.
 
 ---
 

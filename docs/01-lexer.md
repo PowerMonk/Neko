@@ -1,5 +1,7 @@
 # Neko Lexer — Code Flow
 
+> Documento **01** de la serie [`docs/`](./00-index.md).
+
 ## 1. Overview
 
 This is the **lexer** (tokenizer) for the Neko programming language. It reads raw source code and produces tokens, a symbol table, and any lexical errors. This is **just the lexer** — no parser, no compiler — a focused educational project.
