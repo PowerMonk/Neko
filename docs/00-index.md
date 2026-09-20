@@ -12,6 +12,7 @@
 | 03 | [`03-grammar-design.md`](./03-grammar-design.md) | Decisiones de diseño de la gramática (precedencia, iteradores, etc.) |
 | 04 | [`04-parse-tree-example.mmd`](./04-parse-tree-example.mmd) | Árbol de análisis sintáctico (Mermaid) del programa `basic.neko` |
 | 05 | [`05-parser.md`](./05-parser.md)           | Análisis sintáctico: estructura del módulo `parser/` en Rust         |
+| 06 | [`06-semantic-conventions.md`](./06-semantic-conventions.md) | Convenciones semánticas: alcance, tipos, unicidad, uso, exhaustividad |
 
 ## Convención de nombres
 
