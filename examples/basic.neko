@@ -1,4 +1,5 @@
 fn neko {
+    nyan score = 90
 
     nyan banana = 90
     nyan holamundo = "Hola mundo desde Neko"
@@ -10,4 +11,6 @@ fn neko {
     }
 
     meow(result)
+    meow(holamundo)
+    meow(banana)
 }

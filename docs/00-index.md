@@ -13,6 +13,7 @@
 | 04 | [`04-parse-tree-example.mmd`](./04-parse-tree-example.mmd) | Árbol de análisis sintáctico (Mermaid) del programa `basic.neko` |
 | 05 | [`05-parser.md`](./05-parser.md)           | Análisis sintáctico: estructura del módulo `parser/` en Rust         |
 | 06 | [`06-semantic-conventions.md`](./06-semantic-conventions.md) | Convenciones semánticas: alcance, tipos, unicidad, uso, exhaustividad |
+| 07 | [`07-semantic-implementation.md`](./07-semantic-implementation.md) | Implementación del análisis semántico en Rust (`src/semantic/`) |
 
 ## Convención de nombres
 
