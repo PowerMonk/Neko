@@ -83,8 +83,15 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
+        // Filter out COMMENT tokens before parsing. The lexer already
+        // emits them as a convenience but the parser should never see
+        // them — they're whitespace-like.
+        let filtered: Vec<Token> = tokens
+            .into_iter()
+            .filter(|t| t.kind != TokenKind::Comment)
+            .collect();
         Self {
-            stream: TokenStream::new(tokens),
+            stream: TokenStream::new(filtered),
             errors: Vec::new(),
         }
     }
@@ -208,7 +215,22 @@ impl Parser {
     /// Grammar: `FnDecl → 'fn' 'neko' Block`
     fn parse_fn_decl(&mut self) -> Stmt {
         self.stream.advance(); // 'fn'
-        self.stream.advance(); // 'neko'
+
+        // Enforce that the function name is exactly `neko`. Without
+        // this check, `fn saludo { ... }` would silently parse as if
+        // `saludo` were the keyword.
+        if self.stream.consume(TokenKind::KeywordNeko).is_none() {
+            let what = self
+                .stream
+                .peek()
+                .map(|t| t.lexeme.as_str())
+                .unwrap_or("EOF");
+            self.record_error(format!(
+                "expected function name 'neko' after 'fn', found '{}'",
+                what
+            ));
+        }
+
         let body = self.parse_block();
         Stmt::FnDecl { body }
     }

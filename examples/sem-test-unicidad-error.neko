@@ -1,0 +1,19 @@
+# sem-test-unicidad-error.neko
+# ESTE PROGRAMA DEBE FALLAR EN ANALISIS SEMANTICO.
+#
+# Punto 3 de la rubrica: verificar que cada variable haya
+# sido declarada una sola vez.
+#
+# Aqui 'contador' se declara dos veces en el mismo ambito;
+# el analizador debe reportar redeclaration.
+
+fn neko {
+    nyan contador = 1
+    nyan mensaje = "primera"
+
+    # ERROR SEMANTICO: 'contador' ya fue declarada arriba
+    nyan contador = 2
+
+    meow(contador)
+    meow(mensaje)
+}

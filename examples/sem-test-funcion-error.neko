@@ -1,0 +1,15 @@
+# sem-test-funcion-error.neko
+# ESTE PROGRAMA DEBE FALLAR EN ANALISIS SEMANTICO.
+
+# Punto 4 de la rubrica: que en caso de hacer uso de
+# funciones o metodos, estos esten definidos.
+
+# En esta primera iteracion de Neko el unico nombre de
+# funcion permitido despues de 'fn' es 'neko' (es el
+# punto de entrada del programa). Cualquier otro nombre
+# es rechazado por el parser.
+
+fn saludo {
+    nyan x = 1
+    meow(x)
+}

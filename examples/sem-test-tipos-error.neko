@@ -1,0 +1,18 @@
+# sem-test-tipos-error.neko
+# ESTE PROGRAMA DEBE FALLAR EN ANALISIS SEMANTICO.
+#
+# Punto 1 de la rubrica: verificar que un programa fuente
+# haga uso unicamente de tipos de datos considerados en
+# tu sistema de tipos.
+#
+# Aqui usamos un identificador (`inexistente`) que nunca
+# fue declarado. El analizador semantico debe reportar
+# undefined identifier porque ningun tipo conocido puede
+# asignarse a ese nombre.
+
+fn neko {
+    nyan x = hola
+
+    # ERROR SEMANTICO: 'hola' no esta entre comillas
+    meow(x)
+}
