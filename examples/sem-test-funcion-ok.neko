@@ -1,0 +1,17 @@
+# sem-test-funcion-ok.neko
+# ESTE PROGRAMA DEBE COMPILAR SIN ERRORES SEMANTICOS.
+#
+# Punto 4 de la rubrica: que en caso de hacer uso de
+# funciones o metodos, estos esten definidos.
+#
+# El programa declara la funcion fn neko (el unico punto
+# de entrada valido en Neko) y todas las operaciones que
+# aparecen dentro estan bien definidas.
+
+fn neko {
+    nyan saludo = "Hola desde Neko"
+    nyan contador = 42
+
+    meow(saludo)
+    meow(contador)
+}

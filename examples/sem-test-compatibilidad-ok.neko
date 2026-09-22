@@ -1,0 +1,32 @@
+# sem-test-compatibilidad-ok.neko
+# ESTE PROGRAMA DEBE COMPILAR SIN ERRORES SEMANTICOS.
+#
+# Punto 2 de la rubrica: verificar que se respete la
+# compatibilidad entre operandos y operadores de acuerdo
+# a tu sistema de tipos.
+#
+# Todos los operadores aqui reciben operandos compatibles:
+#   - aritmetica (+, -, *, /, %)  con int
+#   - comparacion (==, !=, <, >)  con el mismo tipo
+#   - logica (&&, ||)             con bool
+
+fn neko {
+    nyan a = 10
+    nyan b = 3
+    nyan suma = a + b # 13 
+    nyan producto = a * b # 30
+    nyan igual = a == b # false
+    nyan mayor = a > b # true
+
+    nyan listo = true
+    nyan activo = false
+    nyan ambos = listo && activo
+    nyan ambosOR = listo || activo
+
+    meow(suma)
+    meow(producto)
+    meow(igual)
+    meow(mayor)
+    meow(ambos)
+    meow(ambosOR)
+}

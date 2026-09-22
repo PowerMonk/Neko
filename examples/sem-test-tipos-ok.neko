@@ -1,0 +1,20 @@
+# sem-test-tipos-ok.neko
+# ESTE PROGRAMA DEBE COMPILAR SIN ERRORES SEMANTICOS.
+#
+# Punto 1 de la rubrica: verificar que un programa fuente
+# haga uso unicamente de tipos de datos considerados en
+# tu sistema de tipos.
+#
+# Aqui todos los identificadores estan declarados con tipos
+# conocidos (int, string, bool), por lo que el analizador
+# no debe reportar nada.
+
+fn neko {
+    nyan edad = 25
+    nyan nombre = "Neko"
+    nyan activo = true
+
+    meow(edad)
+    meow(nombre)
+    meow(activo)
+}

@@ -1,0 +1,18 @@
+# sem-test-unicidad-ok.neko
+# ESTE PROGRAMA DEBE COMPILAR SIN ERRORES SEMANTICOS.
+#
+# Punto 3 de la rubrica: verificar que cada variable haya
+# sido declarada una sola vez.
+#
+# Cada variable se declara exactamente una vez; los nombres
+# no se repiten dentro del mismo ambito.
+
+fn neko {
+    nyan primero = 1
+    nyan segundo = 2
+    nyan tercero = 3
+
+    meow(primero)
+    meow(segundo)
+    meow(tercero)
+}

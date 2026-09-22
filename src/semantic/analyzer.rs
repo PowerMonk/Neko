@@ -94,8 +94,15 @@ pub struct SemanticAnalyzer {
 
 impl SemanticAnalyzer {
     pub fn new(tokens: Vec<Token>) -> Self {
+        // Filter out COMMENT tokens (whitespace-like from the parser's
+        // point of view). The lexer emits them for convenience but
+        // neither parser nor semantic analyzer should see them.
+        let filtered: Vec<Token> = tokens
+            .into_iter()
+            .filter(|t| t.kind != TokenKind::Comment)
+            .collect();
         Self {
-            tokens,
+            tokens: filtered,
             cursor: 0,
             errors: Vec::new(),
             scope: Scope::new_root(),

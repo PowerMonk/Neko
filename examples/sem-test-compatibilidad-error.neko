@@ -1,0 +1,27 @@
+# sem-test-compatibilidad-error.neko
+# ESTE PROGRAMA DEBE FALLAR EN ANALISIS SEMANTICO.
+#
+# Punto 2 de la rubrica: verificar que se respete la
+# compatibilidad entre operandos y operadores.
+#
+# Aqui violamos las reglas:
+#   - '+' entre int y string  no se permite
+#   - '&&' entre bool e int   no se permite
+#   - '<' entre string e int  no se permite
+
+fn neko {
+    nyan numero = 10
+    nyan texto = "Hola"
+    nyan bandera = true
+
+    # ERROR SEMANTICO: '+' requiere operandos int
+    nyan mezcla = numero + texto
+
+    # ERROR SEMANTICO: '&&' requiere operandos bool
+    nyan logica = bandera && numero
+
+    # ERROR SEMANTICO: '<' requiere operandos del mismo tipo
+    nyan comparacion = texto < numero
+
+    meow(mezcla)
+}
