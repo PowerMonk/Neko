@@ -1,0 +1,39 @@
+# icg-ok.neko
+# Programa de demostracion para el video: entrada
+# limpia para la fase de GENERACION DE CODIGO INTERMEDIO.
+#
+# Este programa pasa las fases lexica, sintactica y
+# semantica sin errores, y produce cuadruplos y triplos
+# que se escriben en output/quadruples.txt y
+# output/triples.txt.
+#
+# Estructura del programa:
+#   - declaracion de variables
+#   - una expresion aritmetica compuesta (a + b * c)
+#   - una estructura condicional (if/else)
+#   - un match de tres brazos
+#   - dos llamadas a meow
+
+fn neko {
+    nyan a = 10
+    nyan b = 3
+    nyan c = 2
+    nyan x = a + b * c
+
+    nyan score = 90
+    nyan result = match score {
+        100 => "Perfect"
+        90  => "Excellent"
+        _   => "Fail"
+    }
+
+    nyan condicion = x > 30
+    nyan final = if condicion {
+        result
+    } else {
+        "Bajo"
+    }
+
+    meow(x)
+    meow(final)
+}

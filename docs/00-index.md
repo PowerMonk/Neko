@@ -14,6 +14,7 @@
 | 05 | [`05-parser.md`](./05-parser.md)           | Análisis sintáctico: estructura del módulo `parser/` en Rust         |
 | 06 | [`06-semantic-conventions.md`](./06-semantic-conventions.md) | Convenciones semánticas: alcance, tipos, unicidad, uso, exhaustividad |
 | 07 | [`07-semantic-implementation.md`](./07-semantic-implementation.md) | Implementación del análisis semántico en Rust (`src/semantic/`) |
+| 08 | [`08-icg-implementation.md`](./08-icg-implementation.md) | Generación de código intermedio: cuádruplos y triplos (`src/icg/`) |
 
 ## Convención de nombres
 
