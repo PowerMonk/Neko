@@ -1,0 +1,12 @@
+# syn-error.neko
+# Programa de demostracion para el video: contiene un
+# error detectable por la fase SINTACTICA del compilador.
+#
+# Falta el parentesis de cierre en meow( ... ). El
+# parser debe reportar el error antes de pasar a la
+# fase semantica.
+
+fn neko {
+    nyan x = 10
+    meow(x
+}

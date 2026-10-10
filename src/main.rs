@@ -1,8 +1,10 @@
-// Declare the `lexer`, `parser`, and `semantic` submodules.
+// Declare the compiler submodules.
+mod icg;
 mod lexer;
 mod parser;
 mod semantic;
 
+use crate::icg::ICGenerator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::semantic::SemanticAnalyzer;
@@ -31,7 +33,10 @@ fn main() -> io::Result<()> {
         (count, true, Some(syn_result))
     } else {
         std::fs::write("output/parse_tree.txt", "")?;
-        std::fs::write("output/parse_errors.txt", "(skipped: lexical errors present)\n")?;
+        std::fs::write(
+            "output/parse_errors.txt",
+            "(skipped: lexical errors present)\n",
+        )?;
         (0usize, false, None)
     };
 
@@ -44,13 +49,40 @@ fn main() -> io::Result<()> {
             sem_result.write_output("output")?;
             count
         } else {
-            std::fs::write("output/semantic_errors.txt", "(skipped: syntactic errors present)\n")?;
+            std::fs::write(
+                "output/semantic_errors.txt",
+                "(skipped: syntactic errors present)\n",
+            )?;
             0
         }
     } else {
-        std::fs::write("output/semantic_errors.txt", "(skipped: lexical errors present)\n")?;
+        std::fs::write(
+            "output/semantic_errors.txt",
+            "(skipped: lexical errors present)\n",
+        )?;
         0
     };
+
+    // ---- Phase 4: Intermediate code generation (only if all prior phases clean) ----
+    let (quad_count, triple_count) =
+        if let (true, Some(parse_result)) = (syn_ok, parse_result_opt.as_ref()) {
+            if parse_result.errors.is_empty() && sem_errors == 0 {
+                let generator = ICGenerator::new();
+                let generated = generator.generate(&parse_result.program);
+                std::fs::create_dir_all("output")?;
+                std::fs::write("output/quadruples.txt", &generated.quadruples)?;
+                std::fs::write("output/triples.txt", &generated.triples)?;
+                (generated.quad_count, generated.triple_count)
+            } else {
+                std::fs::write("output/quadruples.txt", "(skipped: errors in prior phases)\n")?;
+                std::fs::write("output/triples.txt", "(skipped: errors in prior phases)\n")?;
+                (0, 0)
+            }
+        } else {
+            std::fs::write("output/quadruples.txt", "(skipped: errors in prior phases)\n")?;
+            std::fs::write("output/triples.txt", "(skipped: errors in prior phases)\n")?;
+            (0, 0)
+        };
 
     // ---- Terminal summary ----
     let tok_count = lex_result.tokens.len();
@@ -59,8 +91,8 @@ fn main() -> io::Result<()> {
 
     if syn_ok && syn_errors == 0 && sem_errors == 0 {
         println!(
-            "OK — {} tokens, {} symbols, parse tree built with 0 syntactic errors, semantic analysis: 0 errors.",
-            tok_count, sym_count
+            "OK — {} tokens, {} symbols, parse tree built with 0 syntactic errors, semantic analysis: 0 errors, intermediate code: {} quadruples, {} triples.",
+            tok_count, sym_count, quad_count, triple_count
         );
     } else {
         println!(
@@ -71,4 +103,3 @@ fn main() -> io::Result<()> {
 
     Ok(())
 }
-

@@ -1,0 +1,14 @@
+# sem-error.neko
+# Programa de demostracion para el video: contiene un
+# error detectable por la fase SEMANTICA del compilador.
+#
+# Las fases lexica y sintactica pasan limpias, pero el
+# operador '+' entre int y string viola la comprobacion
+# de tipos (comprobacion 1 de docs/06-semantic-conventions.md).
+
+fn neko {
+    nyan numero = 10
+    nyan texto = "Hola"
+    nyan suma = numero + texto
+    meow(suma)
+}

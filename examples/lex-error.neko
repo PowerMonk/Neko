@@ -1,0 +1,12 @@
+# lex-error.neko
+# Programa de demostracion para el video: contiene un
+# error detectable por la fase LEXICA del compilador.
+#
+# El caracter '@' no pertenece al alfabeto valido de
+# Neko (ver docs/01-lexer.md), por lo que el lexer
+# debe reportarlo y las fases posteriores se omiten.
+
+fn neko {
+    nyan x = 10 @
+    meow(x)
+}
