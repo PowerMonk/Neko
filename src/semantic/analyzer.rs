@@ -47,6 +47,22 @@ use crate::parser::ast::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemanticAnalysis {
     pub errors: Vec<SemanticError>,
+
+    /// Every variable declared in the program, with its inferred type.
+    ///
+    /// Why the code generator needs this: when it translates a `PRINT`
+    /// quadruple it must know whether the operand is an `int`, a `string`
+    /// or a `bool`, because each one needs a different runtime routine
+    /// (`neko_print_int` / `neko_print_str` / `neko_print_bool`).
+    ///
+    /// The quadruple table does NOT carry types — it only says "print
+    /// this operand". The type information lives here, in the symbol
+    /// table, which is exactly the split described in
+    /// `docs/09-codegen-implementation.md`:
+    ///
+    ///   - Symbol table  → WHERE a variable lives and WHAT TYPE it is
+    ///   - Quadruple table → WHAT operations the program performs
+    pub symbols: std::collections::HashMap<String, Type>,
 }
 
 impl SemanticAnalysis {
@@ -55,6 +71,23 @@ impl SemanticAnalysis {
         for e in &self.errors {
             out.push_str(&e.format_line());
             out.push('\n');
+        }
+        out
+    }
+
+    /// Render the symbol table as a simple listing: `name -> type`.
+    ///
+    /// The code generation phase writes a richer table (with addresses)
+    /// to `output/symbol_table.txt`; this one is the type-only view.
+    #[allow(dead_code)]
+    pub fn render_symbols(&self) -> String {
+        let mut names: Vec<&String> = self.symbols.keys().collect();
+        // Sort for deterministic output (HashMap iteration order is random).
+        names.sort();
+        let mut out = String::new();
+        for name in names {
+            let ty = self.symbols[name];
+            out.push_str(&format!("{} -> {}\n", name, ty.name()));
         }
         out
     }
@@ -90,6 +123,9 @@ pub struct SemanticAnalyzer {
     declared: Vec<Declared>,
     /// How many times each name was read during the visit.
     read_count: std::collections::HashMap<String, usize>,
+    /// Every variable declared in the program with its inferred type.
+    /// Exported to the code generator so it knows how to print each one.
+    declared_types: std::collections::HashMap<String, Type>,
 }
 
 impl SemanticAnalyzer {
@@ -108,6 +144,7 @@ impl SemanticAnalyzer {
             scope: Scope::new_root(),
             declared: Vec::new(),
             read_count: std::collections::HashMap::new(),
+            declared_types: std::collections::HashMap::new(),
         }
     }
 
@@ -134,6 +171,7 @@ impl SemanticAnalyzer {
 
         SemanticAnalysis {
             errors: self.errors,
+            symbols: self.declared_types,
         }
     }
 
@@ -322,6 +360,10 @@ impl SemanticAnalyzer {
                 self.declared.push(Declared {
                     name: name.to_string(),
                 });
+                // Record the inferred type so the code generator can
+                // pick the right printing routine for this variable.
+                self.declared_types
+                    .insert(name.to_string(), value_type);
             }
         }
     }

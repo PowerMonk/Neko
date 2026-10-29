@@ -3,6 +3,13 @@
 
 # Runtime artifacts (output preserved via .gitkeep)
 /output/*.txt
+# Assembled program produced by the code generation phase
+/output/program
+/output/program.o
+/output/program.exe
+
+# Local test artifacts
+/test_output.txt
 
 # IDE
 .idea/
