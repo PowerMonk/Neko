@@ -26,17 +26,53 @@
 //     emitter carries two independent lists and counters.
 //   - The ICG does NOT do any semantic validation. The contract is:
 //     "if you got here, the program is already correct".
-//   - Declarations (`nyan x = ...`) emit quadruples ONLY for the RHS
-//     expression. The `nyan x =` part itself does not appear in the
-//     output, per the assignment spec.
 //   - `fn neko { ... }` emits only the body; the function wrapper
 //     does not generate any tuple.
 //   - Block delimiters (`{`, `}`) do not generate tuples.
 //
+// The assignment quadruple (`=`)
+// ------------------------------
+// `nyan x = expr` produces TWO kinds of output, and the distinction
+// matters:
+//
+//   1. The DECLARATION produces nothing. There is no `DECLARE`
+//      quadruple; the keyword `nyan` never appears in the quadruple
+//      table. This mirrors C, where `int a;` (a pure declaration)
+//      generates no code.
+//
+//   2. The ASSIGNMENT produces one quadruple: `(=, <src>, _, x)`.
+//      This mirrors C, where `a = 5;` (an assignment) DOES generate
+//      code. See Aho/Sethi/Ullman, "Dragon Book" §6.7 ("Translation of
+//      Statements"), where `x = y + z` becomes:
+//
+//          t1 = y + z
+//          x  = t1
+//
+// Why the assignment must live here and not in the code generator:
+// the quadruple table is a FLAT list. Only this generator knows that
+// the temporary holding `y + z` is the one destined for `x`. If the
+// assignment were deferred to the code generator, the code generator
+// would need the AST *and* a per-expression count of how many
+// quadruples each expression produced — duplicating this module's
+// logic and coupling two phases that are supposed to be independent.
+//
+// Note the division of labour with the symbol table (see
+// `docs/09-codegen-implementation.md`):
+//
+//   - The SYMBOL TABLE says WHERE a variable lives (section + offset).
+//   - The QUADRUPLE TABLE says WHAT operations the program performs.
+//
+// The `(=, T1, _, x)` quadruple names the destination `x`; it does not
+// contain `x`'s address. The address is resolved later, from the symbol
+// table. So the quadruple table is never used to *store* variable
+// assignments — only to *describe* the assignment operation.
+//
 // Pattern: every `generate_*` method either:
 //   (a) emits 0+ tuples and returns a `Value` representing the
 //       expression's "result operand" for the caller; or
-//   (b) handles control flow and returns a sentinel `Value::Operand("_")`.
+//   (b) handles control flow and returns the temporary that holds
+//       the expression's value (control-flow expressions DO have a
+//       value in Neko: `if` and `match` are expressions).
 // ============================================================================
 
 use super::emitter::CodeEmitter;
@@ -52,8 +88,6 @@ pub enum Value {
     /// A plain operand: a literal (`90`, `"Hola"`) or a variable name (`x`).
     /// No quadruple was emitted; the operand is used directly.
     Operand(String),
-    /// Reserved for control-flow expressions that have no single result.
-    OperandUnderscore,
 }
 
 impl Value {
@@ -61,7 +95,6 @@ impl Value {
     pub fn as_str(&self) -> String {
         match self {
             Value::Operand(s) => s.clone(),
-            Value::OperandUnderscore => "_".to_string(),
         }
     }
 }
@@ -88,6 +121,8 @@ impl ICGenerator {
             triples: self.emitter.render_triples(),
             quad_count: self.emitter.quadruples().len(),
             triple_count: self.emitter.triples().len(),
+            quadruple_list: self.emitter.quadruples().to_vec(),
+            triple_list: self.emitter.triples().to_vec(),
         }
     }
 
@@ -104,13 +139,18 @@ impl ICGenerator {
                     self.generate_stmt(s);
                 }
             }
-            Stmt::VarDecl { name: _name, value } => {
-                // The `nyan x =` part does NOT emit a tuple. We only
-                // generate the RHS expression so its temporaries are
-                // appended to the stream. (If RHS is a single
-                // identifier, NOTHING is emitted — which is the
-                // expected and correct behavior.)
-                let _ = self.generate_expr(value);
+            Stmt::VarDecl { name, value } => {
+                // The DECLARATION part (`nyan name`) emits nothing — there
+                // is no `DECLARE` quadruple and the keyword never appears
+                // in the quadruple table.
+                //
+                // What we DO emit is the ASSIGNMENT of the value to the
+                // variable, exactly like C's `a = 5;` generates code while
+                // `int a;` does not. See the file header for the full
+                // justification.
+                let v = self.generate_expr(value);
+                self.emitter.emit_quad("=", v.as_str(), "_", name.clone());
+                self.emitter.emit_triple("=", v.as_str(), "_".to_string());
             }
             Stmt::PrintStmt { value } => {
                 let v = self.generate_expr(value);
@@ -288,6 +328,21 @@ impl ICGenerator {
     /// L_else:
     ///   <else>
     /// L_end:
+    ///
+    /// Because `if` is an EXPRESSION in Neko (it produces a value), the
+    /// generator reserves a result temporary and assigns the value of
+    /// whichever branch ran into it. The temporary is returned to the
+    /// caller so it can be used (or assigned to a variable).
+    ///
+    /// With an else branch:
+    ///   (GOTOF, cond, _, L_else)
+    ///   <then>
+    ///   (=, <then value>, _, T_result)
+    ///   (GOTO, _, _, L_end)
+    ///   (LABEL, _, _, L_else)
+    ///   <else>
+    ///   (=, <else value>, _, T_result)
+    ///   (LABEL, _, _, L_end)
     fn generate_if(
         &mut self,
         condition: &Expr,
@@ -295,6 +350,9 @@ impl ICGenerator {
         else_branch: Option<&Expr>,
     ) -> Value {
         let cond = self.generate_expr(condition);
+
+        // The temporary that will hold the value of the whole `if`.
+        let result = self.emitter.next_temp();
 
         // Only emit GOTOF if there IS an else branch. If there is no
         // else, we treat the `if` as a conditional statement and emit
@@ -307,26 +365,50 @@ impl ICGenerator {
             self.emitter.emit_quad("GOTOF", cond.as_str(), "_", l_else.clone());
             self.emitter.emit_triple("GOTOF", cond.as_str(), "_".to_string());
             // then branch
-            let _ = self.generate_expr(then_branch);
+            let then_value = self.generate_expr(then_branch);
+            // (=, <then value>, _, T_result)
+            self.emitter
+                .emit_quad("=", then_value.as_str(), "_", result.clone());
+            self.emitter
+                .emit_triple("=", then_value.as_str(), "_".to_string());
             // (GOTO, _, _, L_end)
             self.emitter.emit_quad("GOTO", "_", "_", l_end.clone());
             self.emitter.emit_triple("GOTO", "_".to_string(), "_".to_string());
             // L_else:
             self.emitter.emit_quad("LABEL", "_", "_", l_else.clone());
-            // (Labels in triples are also written as plain (LABEL, _, _) at the right index.)
+            self.emitter.emit_triple("LABEL", "_".to_string(), "_".to_string());
             // else branch
-            let _ = self.generate_expr(_else);
+            let else_value = self.generate_expr(_else);
+            // (=, <else value>, _, T_result)
+            self.emitter
+                .emit_quad("=", else_value.as_str(), "_", result.clone());
+            self.emitter
+                .emit_triple("=", else_value.as_str(), "_".to_string());
             // L_end:
             self.emitter.emit_quad("LABEL", "_", "_", l_end.clone());
+            self.emitter.emit_triple("LABEL", "_".to_string(), "_".to_string());
         } else {
-            // No else: just conditional execution of then.
+            // No else branch: the `if` has no value on the false path, so
+            // we pre-initialise the result temporary to 0 (a null pointer
+            // for strings, zero for ints/bools) before the branch.
+            self.emitter.emit_quad("=", "0", "_", result.clone());
+            self.emitter.emit_triple("=", "0".to_string(), "_".to_string());
+            // (GOTOF, cond, _, L_end)
             self.emitter.emit_quad("GOTOF", cond.as_str(), "_", l_end.clone());
             self.emitter.emit_triple("GOTOF", cond.as_str(), "_".to_string());
-            let _ = self.generate_expr(then_branch);
+            // then branch
+            let then_value = self.generate_expr(then_branch);
+            // (=, <then value>, _, T_result)
+            self.emitter
+                .emit_quad("=", then_value.as_str(), "_", result.clone());
+            self.emitter
+                .emit_triple("=", then_value.as_str(), "_".to_string());
+            // L_end:
             self.emitter.emit_quad("LABEL", "_", "_", l_end.clone());
+            self.emitter.emit_triple("LABEL", "_".to_string(), "_".to_string());
         }
 
-        Value::OperandUnderscore
+        Value::Operand(result)
     }
 
     /// `match <scrutinee> { <arms> }` — emits:
@@ -342,6 +424,10 @@ impl ICGenerator {
     /// L_end:
     fn generate_match(&mut self, scrutinee: &Expr, arms: &[Arm]) -> Value {
         let scrut = self.generate_expr(scrutinee);
+
+        // The temporary that holds the value of the whole `match`.
+        // The match is an expression in Neko, so it must produce a value.
+        let result = self.emitter.next_temp();
 
         // Allocate all the comparison temporaries and arm labels up front
         // so we can use them in GOTOV instructions before the bodies.
@@ -371,14 +457,19 @@ impl ICGenerator {
             });
         }
 
-        // Emit the condition tests for non-default arms. The default arm
-        // (Pattern::Wildcard) has no test — control simply falls through
-        // to it after all previous tests fail. This avoids an unnecessary
-        // GOTO pointing to a label that hasn't been emitted yet.
+        // Emit the condition tests for the non-default arms.
+        //
+        // The default arm gets NO test of its own. Instead, after all
+        // the pattern tests, an unconditional GOTO jumps to it: that
+        // jump is the "else" of the if-chain. Without it, control would
+        // fall through into the FIRST arm's body, which would be wrong.
+        //
+        // The default arm's body is emitted LAST (see the second pass
+        // below), so it falls through to L_end naturally and does not
+        // need a GOTO of its own.
         for (i, arm) in arms.iter().enumerate() {
             if matches!(arm.pattern, Pattern::Wildcard) {
-                // Skip the default arm in the test phase; it will be
-                // emitted as the last body below.
+                // The default arm is handled after the loop.
                 continue;
             }
             match &arm.pattern {
@@ -437,6 +528,14 @@ impl ICGenerator {
             }
         }
 
+        // The "else" of the if-chain: if none of the pattern tests
+        // matched, jump to the default arm's body.
+        if let Some(di) = default_idx {
+            self.emitter
+                .emit_quad("GOTO", "_", "_", arm_infos[di].label.clone());
+            self.emitter.emit_triple("GOTO", "_".to_string(), "_".to_string());
+        }
+
         // Second pass: emit each arm's body in source order, then GOTO L_end.
         // Default arm is the LAST one we emit (so any unmatched cases fall through).
         // Reorder: non-default first, default last.
@@ -449,8 +548,14 @@ impl ICGenerator {
         for (idx, i) in order.iter().enumerate() {
             self.emitter
                 .emit_quad("LABEL", "_", "_", arm_infos[*i].label.clone());
+            self.emitter.emit_triple("LABEL", "_".to_string(), "_".to_string());
             let body = self.generate_expr(&arms[*i].body);
-            arm_infos[*i].body_value = Some(body);
+            arm_infos[*i].body_value = Some(body.clone());
+            // The match is an EXPRESSION: the value of the arm that ran
+            // must land in the match's result temporary.
+            self.emitter
+                .emit_quad("=", body.as_str(), "_", result.clone());
+            self.emitter.emit_triple("=", body.as_str(), "_".to_string());
             // After every body EXCEPT the last one (which is the default
             // and naturally falls through to L_end), emit a GOTO L_end
             // so the next arm's body is skipped.
@@ -462,15 +567,30 @@ impl ICGenerator {
 
         // L_end:
         self.emitter.emit_quad("LABEL", "_", "_", l_end);
+        self.emitter.emit_triple("LABEL", "_".to_string(), "_".to_string());
 
-        Value::OperandUnderscore
+        Value::Operand(result)
     }
 }
 
-/// What the generator produced. Plain strings for now; we render directly.
+/// What the generator produced.
+///
+/// `quadruples` / `triples` hold the RENDERED text (what goes into
+/// `output/quadruples.txt` and `output/triples.txt`).
+///
+/// `quadruple_list` / `triple_list` hold the STRUCTURED tuples, which the
+/// code generator (`src/codegen/`) consumes to emit assembly. Keeping both
+/// means the code generator does not have to re-parse the rendered text.
 pub struct GeneratedCode {
     pub quadruples: String,
     pub triples: String,
     pub quad_count: usize,
     pub triple_count: usize,
+    /// The quadruples as structured data, for the assembly generator.
+    pub quadruple_list: Vec<super::quadruple::Quadruple>,
+    /// The triples as structured data. Kept for symmetry with
+    /// `quadruple_list` and for any future consumer; the assembly
+    /// generator works from the quadruples.
+    #[allow(dead_code)]
+    pub triple_list: Vec<super::triple::Triple>,
 }

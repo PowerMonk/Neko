@@ -1,0 +1,39 @@
+# icg-if-true.neko
+# Programa de demostracion para el video: ejercita la rama
+# verdadera del if/else y la rama del primer brazo del match.
+#
+# Espera: 31  Perfect
+#   x      = 10 + 3 * 2          = 16
+#   x2     = 2 * 3 + 10         = 16
+#   total  = x + x2              = 32
+#   score  = 100
+#   result = "Perfect"          (brazo 100 del match)
+#   cond   = 32 > 10            = true
+#   final  = "Alto"             (rama verdadera del if)
+
+fn neko {
+    nyan a = 10
+    nyan b = 3
+    nyan c = 2
+    nyan x = a + b * c
+    nyan x2 = b * c + a
+    nyan total = x + x2
+
+    nyan score = 100
+    nyan result = match score {
+        100 => "Perfect"
+        90  => "Excellent"
+        _   => "Fail"
+    }
+
+    nyan cond = total > 10
+    nyan final = if cond {
+        "Alto"
+    } else {
+        "Bajo"
+    }
+
+    meow(total)
+    meow(result)
+    meow(final)
+}
